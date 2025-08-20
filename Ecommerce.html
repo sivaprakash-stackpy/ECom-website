@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ElectroShop Pro • Electronics E‑commerce</title>
+  <!-- Bootstrap & Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <!-- Leaflet (for tracking map) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root{ --bg:#0b0f19; --card:#11172a; --muted:#93a4c3; --border:#223056; --accent:#0d6efd; }
+    body{ background:#f7f9fc; }
+    .navbar{ background:#0b0f19; }
+    .navbar .nav-link, .navbar .navbar-brand{ color:#e8eefc !important; }
+    .hero{ background: radial-gradient(900px 300px at 5% -10%, rgba(13,110,253,.15), transparent),
+                        radial-gradient(700px 280px at 95% 0%, rgba(111,66,193,.12), transparent),
+                        #0d1324; color:#e8eefc; }
+    .sidebar{ position:sticky; top:90px; }
+    .filter-card{ background:#ffffff; border:1px solid #e4e8f1; border-radius:16px; }
+    .product-card{ background:#fff; border:1px solid #e6ecf5; border-radius:16px; overflow:hidden; transition:transform .25s ease, box-shadow .25s ease; }
+    .product-card:hover{ transform:translateY(-6px); box-shadow:0 12px 30px rgba(18,38,63,.12); }
+    .product-img-wrap{ position:relative; background:#f3f6fb; }
+    .product-img{ height:190px; width:100%; object-fit:contain; transition:transform .3s ease; }
+    .product-card:hover .product-img{ transform:scale(1.05); }
+    .fav-btn{ position:absolute; right:10px; top:10px; background:#fff; border:1px solid #e6ecf5; }
+    .price{ font-weight:700; }
+    .price .mrp{ color:#99a3b6; text-decoration:line-through; font-weight:400; margin-left:.35rem; }
+    .badge-soft{ background:rgba(13,110,253,.1); color:#0d6efd; border:1px solid rgba(13,110,253,.2); }
+    .rating{ color:#ffc107; }
+    .offcanvas-dark{ background:#0f1422; color:#d7def5; }
+    .offcanvas-dark .list-group-item{ background:transparent; color:#d7def5; border-color:#263053; }
+    .mapbox{ height:300px; border-radius:12px; overflow:hidden; border:1px solid #e6ecf5; }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg sticky-top shadow-sm">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="#"><i class="bi bi-lightning-charge-fill text-warning me-2"></i>ElectroShop</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav"><span class="navbar-toggler-icon"></span></button>
+      <div class="collapse navbar-collapse" id="nav">
+        <form class="ms-lg-4 my-3 my-lg-0 w-100" role="search" onsubmit="event.preventDefault(); applyFilters();">
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input id="q" class="form-control" type="search" placeholder="Search for phones, laptops, headphones…"/>
+          </div>
+        </form>&emsp;
+        <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-3">
+          <li class="nav-item">
+            <button class="btn btn-outline-light position-relative" data-bs-toggle="offcanvas" data-bs-target="#wishCanvas">
+              <i class="bi bi-heart"></i>
+              <span id="wishCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger">0</span>
+            </button>
+          </li>
+          <li class="nav-item">
+            <button class="btn btn-outline-light position-relative" data-bs-toggle="offcanvas" data-bs-target="#cartCanvas">
+              <i class="bi bi-cart3"></i>
+              <span id="cartCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger">0</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero py-5">
+    <div class="container">
+      <div class="row align-items-center g-4">
+        <div class="col-lg-7">
+          <h1 class="display-5 fw-bold">Upgrade your tech. <span class="text-primary">Unbeatable</span> prices.</h1>
+          <p class="lead">Curated electronics: flagship phones, gaming laptops, ANC headphones, 4K cameras and more.</p>
+          <div class="d-flex gap-2 flex-wrap">
+            <a href="#catalog" class="btn btn-primary btn-lg"><i class="bi bi-bag-check me-2"></i>Shop now</a>
+            <button class="btn btn-outline-light btn-lg border" data-bs-toggle="modal" data-bs-target="#deliveryModal"><i class="bi bi-geo-alt me-2"></i>Set delivery</button>
+          </div>
+        </div>
+        <div class="col-lg-5 text-center">
+          <img class="img-fluid rounded-4 shadow" src="https://images.unsplash.com/photo-1518441902117-f79f1e317a06?q=80&w=1200&auto=format&fit=crop" alt="Gadgets"/>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <main class="py-4">
+    <div class="container">
+      <div class="row g-4">
+        <!-- Sidebar Filters -->
+        <aside class="col-lg-3">
+          <div class="filter-card p-3">
+            <div class="d-flex align-items-center justify-content-between"><h5 class="mb-2">Filters</h5><button class="btn btn-sm btn-link" onclick="resetFilters()">Reset</button></div>
+            <hr>
+            <h6 class="mb-2">Categories</h6>
+            <div id="catFilters" class="vstack gap-2 mb-3">
+              <!-- dynamic -->
+            </div>
+            <h6 class="mb-2">Brands</h6>
+            <div id="brandFilters" class="vstack gap-2 mb-3">
+              <!-- dynamic -->
+            </div>
+            <h6 class="mb-2">Price</h6>
+            <input id="priceRange" class="form-range" type="range" min="0" max="150000" step="500" oninput="priceVal.textContent = '₹'+Number(this.value).toLocaleString('en-IN'); applyFilters();">
+            <div class="text-end small text-secondary">Up to <span id="priceVal">₹150,000</span></div>
+            <h6 class="mt-3 mb-2">Sort</h6>
+            <select id="sortBy" class="form-select form-select-sm" onchange="applyFilters()">
+              <option value="popular">Most Popular</option>
+              <option value="priceLow">Price: Low to High</option>
+              <option value="priceHigh">Price: High to Low</option>
+              <option value="rating">Top Rated</option>
+            </select>
+          </div>
+        </aside>
+
+        <!-- Catalog -->
+        <section class="col-lg-9" id="catalog">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <h5 class="mb-0">Products</h5>
+            <div class="text-secondary small"><span id="visibleCount">0</span> items</div>
+          </div>
+          <div id="grid" class="row g-4"></div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <!-- Quick View Modal -->
+  <div class="modal fade" id="quickView" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="qvTitle">Product</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-4">
+            <div class="col-md-6"><img id="qvImg" class="img-fluid rounded" alt=""></div>
+            <div class="col-md-6">
+              <div class="mb-2"><span class="badge rounded-pill text-bg-light" id="qvCat"></span> <span class="badge badge-soft" id="qvBrand"></span></div>
+              <div class="rating mb-2" id="qvRating"></div>
+              <div class="mb-2 fs-4"><span id="qvPrice" class="price"></span> <span id="qvMrp" class="price mrp"></span></div>
+              <p class="text-secondary" id="qvDesc"></p>
+              <div id="qvHighlights" class="vstack gap-1 mb-3"></div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-primary" id="qvAdd"><i class="bi bi-bag-plus me-2"></i>Add to cart</button>
+                <button class="btn btn-outline-secondary" id="qvFav"><i class="bi bi-heart me-2"></i>Wishlist</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delivery Modal -->
+  <div class="modal fade" id="deliveryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-geo-alt me-2"></i>Delivery & Address</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="vstack gap-3">
+            <div>
+              <label class="form-label">Your City</label>
+              <select id="city" class="form-select">
+                <option value="">Select…</option>
+                <option value="Chennai">Chennai</option>
+                <option value="Bengaluru">Bengaluru</option>
+                <option value="Hyderabad">Hyderabad</option>
+                <option value="Mumbai">Mumbai</option>
+                <option value="Delhi">Delhi</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Delivery Speed</label>
+              <select id="shipMethod" class="form-select">
+                <option value="standard">Standard (3–5 days)</option>
+                <option value="express">Express (1–2 days)</option>
+              </select>
+            </div>
+            <div class="small text-secondary">Tip: Click “Use my location” for automatic city & distance-based shipping.</div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-outline-primary" id="btnUseGeo"><i class="bi bi-crosshair me-1"></i>Use my location</button>
+              <button class="btn btn-primary ms-auto" data-bs-dismiss="modal" id="btnSaveDelivery">Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Offcanvas: Cart -->
+  <div class="offcanvas offcanvas-end offcanvas-dark" tabindex="-1" id="cartCanvas">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title"><i class="bi bi-cart3 me-2"></i>Your Cart</h5>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body d-flex flex-column">
+      <div id="cartItems" class="list-group mb-3 flex-grow-1"></div>
+      <div class="border-top pt-3">
+        <div class="d-flex justify-content-between"><span>Subtotal</span><strong id="cartSubtotal">₹0</strong></div>
+        <div class="d-flex justify-content-between"><span>Delivery</span><strong id="cartShip">₹0</strong></div>
+        <div class="d-flex justify-content-between fs-5 mt-2"><span>Total</span><strong id="cartTotal">₹0</strong></div>
+        <div class="small text-secondary mt-1" id="shipNote"></div>
+        <div class="d-grid mt-3">
+          <button id="btnCheckout" class="btn btn-primary"><i class="bi bi-shield-lock me-2"></i>Checkout</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Offcanvas: Wishlist -->
+  <div class="offcanvas offcanvas-end offcanvas-dark" tabindex="-1" id="wishCanvas">
+    <div class="offcanvas-header">
+      <h5 class="offcanvas-title"><i class="bi bi-heart me-2"></i>Wishlist</h5>
+      <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div id="wishItems" class="vstack gap-3"></div>
+    </div>
+  </div>
+
+  <!-- Order Tracking Modal -->
+  <div class="modal fade" id="trackModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-truck me-2"></i>Order Tracking</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-4">
+            <div class="col-md-6">
+              <div class="mapbox" id="map"></div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-2"><strong>Order ID:</strong> <span id="trkId"></span></div>
+              <div class="mb-2"><strong>Status:</strong> <span id="trkStatus" class="badge text-bg-primary">Processing</span></div>
+              <div class="progress mt-2" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar" id="trkBar" style="width: 15%">15%</div>
+              </div>
+              <ol class="mt-3" id="trkSteps">
+                <li>Order Placed</li>
+                <li>Packed</li>
+                <li>Shipped</li>
+                <li>Out for Delivery</li>
+                <li>Delivered</li>
+              </ol>
+              <div class="small text-secondary">Location is simulated for demo purposes using Leaflet + OpenStreetMap.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="py-5 border-top bg-light">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-md-4">
+          <h5>ElectroShop</h5>
+          <p class="text-secondary">Fast shipping across India, secure payments, and easy returns.</p>
+        </div>
+        <div class="col-md-2">
+          <h6>Store</h6>
+          <ul class="list-unstyled">
+            <li><a class="link-dark" href="#">About</a></li>
+            <li><a class="link-dark" href="#">Blog</a></li>
+            <li><a class="link-dark" href="#">Careers</a></li>
+          </ul>
+        </div>
+        <div class="col-md-3">
+          <h6>Help</h6>
+          <ul class="list-unstyled">
+            <li><a class="link-dark" href="#" data-bs-toggle="modal" data-bs-target="#deliveryModal">Delivery</a></li>
+            <li><a class="link-dark" href="#">Returns</a></li>
+            <li><a class="link-dark" href="#">Payments</a></li>
+          </ul>
+        </div>
+        <div class="col-md-3">
+          <h6>Newsletter</h6>
+          <div class="input-group">
+            <input class="form-control" placeholder="Email address"/>
+            <button class="btn btn-primary">Subscribe</button>
+          </div>
+        </div>
+      </div>
+      <div class="text-center text-secondary mt-4">© <span id="year"></span> ElectroShop. All rights reserved.</div>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // ---- Demo Catalog Data ----
+    const PRODUCTS = [
+      {id:'p1', title:'Pixelon X Pro 5G', category:'phones', brand:'Pixelon', rating:4.7, price:64990, mrp:69990,
+        img:'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=900&auto=format&fit=crop',
+        highlights:['AMOLED 120Hz','8GB/256GB','50MP OIS'],
+        description:'Flagship camera with OIS, 5G speeds, and a stunning 120Hz display.'},
+      {id:'p2', title:'AstraBook 14 Max', category:'laptops', brand:'Astra', rating:4.5, price:72990, mrp:79990,
+        img:'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?q=80&w=900&auto=format&fit=crop',
+        highlights:['Intel i7 12th Gen','16GB RAM','512GB NVMe'],
+        description:'Slim metal body, all‑day battery, perfect for work and play.'},
+      {id:'p3', title:'Wave ANC 700', category:'audio', brand:'Wave', rating:4.3, price:9990, mrp:12990,
+        img:'https://images.unsplash.com/photo-1518442901541-3894a6fc1e43?q=80&w=900&auto=format&fit=crop',
+        highlights:['Hybrid ANC','40mm drivers','30h battery'],
+        description:'Immersive sound with hybrid noise cancellation and deep bass.'},
+      {id:'p4', title:'FocusPro 4K Mirrorless', category:'cameras', brand:'FocusPro', rating:4.6, price:84990, mrp:94990,
+        img:'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=900&auto=format&fit=crop',
+        highlights:['24MP Sensor','4K60','In‑body OIS'],
+        description:'Pro‑grade mirrorless camera with stunning low‑light performance.'},
+      {id:'p5', title:'GameBox 15 RTX', category:'laptops', brand:'GameBox', rating:4.8, price:119990, mrp:129990,
+        img:'https://images.unsplash.com/photo-1518779578993-ec3579fee39f?q=80&w=900&auto=format&fit=crop',
+        highlights:['Ryzen 7','RTX 4060','165Hz 15.6\"'],
+        description:'High‑refresh 165Hz panel and RTX graphics for smooth gameplay.'},
+      {id:'p6', title:'Buds S Pro', category:'audio', brand:'Wave', rating:4.1, price:3990, mrp:5990,
+        img:'https://images.unsplash.com/photo-1590658268037-6bf12165a8df?q=80&w=900&auto=format&fit=crop',
+        highlights:['ANC','Transparent mode','Wireless charging'],
+        description:'Pocketable earbuds with rich sound and clear calls.'},
+      {id:'p7', title:'Photon Max 12', category:'phones', brand:'Photon', rating:4.4, price:52990, mrp:59990,
+        img:'https://images.unsplash.com/photo-1510552776732-01acc9a4c1c5?q=80&w=900&auto=format&fit=crop',
+        highlights:['OLED','Telephoto','Fast charging'],
+        description:'Premium design, excellent cameras, and blazing performance.'},
+      {id:'p8', title:'ActionCam X2', category:'cameras', brand:'ActionCam', rating:4.2, price:24990, mrp:29990,
+        img:'https://images.unsplash.com/photo-1508898578281-774ac4893bd0?q=80&w=900&auto=format&fit=crop',
+        highlights:['5K30','Hyper Stabilization','Waterproof'],
+        description:'Adventure‑ready action cam with superb stabilization.'},
+    ];
+
+    // Warehouses (for distance/charges)
+    const WAREHOUSES = {
+      Chennai: {lat:13.0843, lon:80.2705},
+      Bengaluru: {lat:12.9716, lon:77.5946},
+      Hyderabad: {lat:17.3850, lon:78.4867},
+      Mumbai: {lat:19.0760, lon:72.8777},
+      Delhi: {lat:28.6139, lon:77.2090}
+    };
+
+    // ---- State ----
+    const rupee = n => '₹' + n.toLocaleString('en-IN');
+    let filters = { cats:new Set(), brands:new Set(), maxPrice:150000, sort:'popular', q:'' };
+    let cart = JSON.parse(localStorage.getItem('cart')||'[]');
+    let wishlist = JSON.parse(localStorage.getItem('wishlist')||'[]');
+    let delivery = JSON.parse(localStorage.getItem('delivery')||'{}');
+
+    // ---- Elements ----
+    const grid = document.getElementById('grid');
+    const visibleCount = document.getElementById('visibleCount');
+    const q = document.getElementById('q');
+    const priceRange = document.getElementById('priceRange');
+    const sortBy = document.getElementById('sortBy');
+
+    // ---- Build Filters ----
+    function buildFilters(){
+      const cats = [...new Set(PRODUCTS.map(p=>p.category))];
+      const brands = [...new Set(PRODUCTS.map(p=>p.brand))];
+      const catWrap = document.getElementById('catFilters');
+      const brandWrap = document.getElementById('brandFilters');
+      catWrap.innerHTML = cats.map(c=>`<label class="form-check">
+          <input class="form-check-input filter-cat" type="checkbox" value="${c}"> <span class="form-check-label text-capitalize">${c}</span>
+        </label>`).join('');
+      brandWrap.innerHTML = brands.map(b=>`<label class="form-check">
+          <input class="form-check-input filter-brand" type="checkbox" value="${b}"> <span class="form-check-label">${b}</span>
+        </label>`).join('');
+      document.querySelectorAll('.filter-cat').forEach(cb=> cb.addEventListener('change',()=>{ toggleSet(filters.cats, cb.value); applyFilters(); }));
+      document.querySelectorAll('.filter-brand').forEach(cb=> cb.addEventListener('change',()=>{ toggleSet(filters.brands, cb.value); applyFilters(); }));
+    }
+    function toggleSet(set, val){ set.has(val)? set.delete(val): set.add(val); }
+
+    // ---- Render Grid ----
+    function renderGrid(list){
+      grid.innerHTML = list.map(p=>`
+        <div class="col-6 col-sm-6 col-lg-4">
+          <div class="product-card h-100">
+            <div class="product-img-wrap p-3">
+              <img src="${p.img}" class="product-img" alt="${p.title}">
+              <button class="btn btn-sm fav-btn rounded-circle" aria-label="fav" onclick="toggleFav('${p.id}')">
+                <i class="bi ${wishlist.some(w=>w.id===p.id)?'bi-heart-fill text-danger':'bi-heart'}"></i>
+              </button>
+            </div>
+            <div class="p-3">
+              <div class="d-flex align-items-center justify-content-between mb-1">
+                <span class="badge text-bg-light text-capitalize">${p.category}</span>
+                <span class="rating small">${'★'.repeat(Math.round(p.rating))}<span class="text-secondary">${'★'.repeat(5-Math.round(p.rating))}</span></span>
+              </div>
+              <h6 class="mb-1">${p.title}</h6>
+              <div class="small text-secondary mb-2">${p.highlights.slice(0,2).join(' • ')}</div>
+              <div class="d-flex align-items-center justify-content-between">
+                <div class="price">${rupee(p.price)} <span class="mrp">${rupee(p.mrp)}</span></div>
+                <div class="btn-group">
+                  <button class="btn btn-sm btn-outline-secondary" onclick="openQuick('${p.id}')"><i class="bi bi-eye"></i></button>
+                  <button class="btn btn-sm btn-primary" onclick="addToCart('${p.id}')"><i class="bi bi-bag-plus me-1"></i>Add</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>`).join('');
+      visibleCount.textContent = list.length;
+    }
+
+    // ---- Quick View ----
+    const qv = new bootstrap.Modal('#quickView');
+    function openQuick(id){
+      const p = PRODUCTS.find(x=>x.id===id);
+      document.getElementById('qvTitle').textContent = p.title;
+      document.getElementById('qvImg').src = p.img;
+      document.getElementById('qvCat').textContent = p.category;
+      document.getElementById('qvBrand').textContent = p.brand;
+      document.getElementById('qvRating').innerHTML = '★'.repeat(Math.round(p.rating)) + '<span class="text-secondary">' + '★'.repeat(5-Math.round(p.rating)) + '</span>';
+      document.getElementById('qvPrice').textContent = rupee(p.price);
+      document.getElementById('qvMrp').textContent = rupee(p.mrp);
+      document.getElementById('qvDesc').textContent = p.description;
+      document.getElementById('qvHighlights').innerHTML = p.highlights.map(x=>`<div><i class="bi bi-check2-circle me-2 text-success"></i>${x}</div>`).join('');
+      document.getElementById('qvAdd').onclick = ()=>{ addToCart(p.id); qv.hide(); };
+      const favBtn = document.getElementById('qvFav');
+      favBtn.innerHTML = `<i class="bi ${wishlist.some(w=>w.id===p.id)?'bi-heart-fill':'bi-heart'} me-2"></i>Wishlist`;
+      favBtn.onclick = ()=>{ toggleFav(p.id); openQuick(p.id); };
+      qv.show();
+    }
+
+    // ---- Filtering ----
+    function applyFilters(){
+      filters.q = q.value.trim().toLowerCase();
+      filters.maxPrice = Number(priceRange.value);
+      filters.sort = sortBy.value;
+      let list = PRODUCTS.filter(p=> (filters.cats.size? filters.cats.has(p.category): true)
+        && (filters.brands.size? filters.brands.has(p.brand): true)
+        && p.price <= filters.maxPrice
+        && (!filters.q || p.title.toLowerCase().includes(filters.q)));
+      switch(filters.sort){
+        case 'priceLow': list.sort((a,b)=>a.price-b.price); break;
+        case 'priceHigh': list.sort((a,b)=>b.price-a.price); break;
+        case 'rating': list.sort((a,b)=>b.rating-a.rating); break;
+        default: /* popular */ break;
+      }
+      renderGrid(list);
+    }
+    function resetFilters(){
+      filters = { cats:new Set(), brands:new Set(), maxPrice:150000, sort:'popular', q:'' };
+      document.querySelectorAll('.filter-cat,.filter-brand').forEach(cb=> cb.checked=false);
+      priceRange.value = 150000; document.getElementById('priceVal').textContent = '₹150,000';
+      sortBy.value = 'popular'; q.value='';
+      applyFilters();
+    }
+
+    // ---- Cart ----
+    function saveCart(){ localStorage.setItem('cart', JSON.stringify(cart)); }
+    function addToCart(id){ const p = PRODUCTS.find(x=>x.id===id); const ex = cart.find(x=>x.id===id); ex? ex.qty++: cart.push({...p, qty:1}); saveCart(); renderCart(); bump('#cartCount'); }
+    function removeFromCart(id){ cart = cart.filter(x=>x.id!==id); saveCart(); renderCart(); }
+    function incQty(id){ const i=cart.find(x=>x.id===id); if(i){i.qty++; saveCart(); renderCart();} }
+    function decQty(id){ const i=cart.find(x=>x.id===id); if(i){ i.qty=Math.max(1,i.qty-1); saveCart(); renderCart(); } }
+    function renderCart(){
+      const wrap = document.getElementById('cartItems');
+      const subtotal = cart.reduce((s,i)=>s+i.price*i.qty,0);
+      wrap.innerHTML = cart.length? cart.map(c=>`
+        <div class="list-group-item d-flex align-items-center gap-3">
+          <img src="${c.img}" width="56" height="56" class="rounded" style="object-fit:cover">
+          <div class="flex-grow-1">
+            <div class="fw-semibold">${c.title}</div>
+            <div class="small text-secondary">${rupee(c.price)} • <span class="text-uppercase">${c.category}</span></div>
+            <div class="d-flex align-items-center gap-2 mt-1">
+              <button class="btn btn-sm btn-outline-light" onclick="decQty('${c.id}')">−</button>
+              <span>${c.qty}</span>
+              <button class="btn btn-sm btn-outline-light" onclick="incQty('${c.id}')">+</button>
+              <button class="btn btn-sm btn-outline-danger ms-auto" onclick="removeFromCart('${c.id}')"><i class="bi bi-trash"></i></button>
+            </div>
+          </div>
+        </div>`).join('') : '<div class="text-center text-secondary">Your cart is empty.</div>';
+      document.getElementById('cartSubtotal').textContent = rupee(subtotal);
+      const ship = calcShipping(subtotal);
+      document.getElementById('cartShip').textContent = rupee(ship.amount);
+      document.getElementById('shipNote').textContent = ship.note;
+      document.getElementById('cartTotal').textContent = rupee(subtotal + ship.amount);
+      document.getElementById('cartCount').textContent = cart.reduce((s,i)=>s+i.qty,0);
+    }
+
+    // ---- Wishlist ----
+    function saveWish(){ localStorage.setItem('wishlist', JSON.stringify(wishlist)); }
+    function toggleFav(id){ const p = PRODUCTS.find(x=>x.id===id); const i = wishlist.findIndex(w=>w.id===id); if(i>-1) wishlist.splice(i,1); else wishlist.push(p); saveWish(); renderWishlist(); applyFilters(); bump('#wishCount'); }
+    function renderWishlist(){
+      const wrap = document.getElementById('wishItems');
+      document.getElementById('wishCount').textContent = wishlist.length;
+      wrap.innerHTML = wishlist.length? wishlist.map(w=>`
+        <div class="d-flex align-items-center gap-3 border rounded p-2">
+          <img src="${w.img}" width="62" height="62" class="rounded" style="object-fit:cover">
+          <div class="flex-grow-1">
+            <div class="fw-semibold">${w.title}</div>
+            <div class="small text-secondary">${rupee(w.price)} • ${w.brand}</div>
+            <div class="d-flex gap-2 mt-1">
+              <button class="btn btn-sm btn-primary" onclick="addToCart('${w.id}')"><i class="bi bi-bag-plus"></i></button>
+              <button class="btn btn-sm btn-outline-danger" onclick="toggleFav('${w.id}')"><i class="bi bi-heartbreak"></i></button>
+            </div>
+          </div>
+        </div>`).join('') : '<div class="text-secondary">Your wishlist is empty.</div>';
+    }
+
+    // ---- Delivery / Shipping Charge ----
+    function saveDelivery(){ localStorage.setItem('delivery', JSON.stringify(delivery)); }
+    function setCity(city){ delivery.city = city; delivery.coords = WAREHOUSES[city]; saveDelivery(); renderCart(); }
+    document.getElementById('btnSaveDelivery').addEventListener('click', ()=>{ const c=document.getElementById('city').value; if(c) setCity(c); delivery.method = document.getElementById('shipMethod').value; saveDelivery(); renderCart(); });
+    document.getElementById('btnUseGeo').addEventListener('click', ()=>{
+      if(!navigator.geolocation) return alert('Geolocation not supported');
+      navigator.geolocation.getCurrentPosition(pos=>{
+        delivery.user = {lat:pos.coords.latitude, lon:pos.coords.longitude};
+        // Pick nearest warehouse city by distance
+        let best = null, bestD = Infinity;
+        for(const [city,loc] of Object.entries(WAREHOUSES)){
+          const d = haversine(delivery.user.lat, delivery.user.lon, loc.lat, loc.lon);
+          if(d<bestD){ bestD=d; best=city; }
+        }
+        setCity(best);
+        document.getElementById('city').value = best;
+        alert('Set city to '+best+' (nearest)');
+      }, err=> alert('Location permission denied'));
+    });
+
+    function calcShipping(subtotal){
+      // Pricing rules
+      if(subtotal===0) return {amount:0, note:'Add items to calculate shipping.'};
+      // Free shipping threshold
+      if(subtotal >= 2000) return {amount:0, note:'Free shipping on orders ₹2,000+'};
+      // Base based on distance if user known else flat
+      let method = delivery.method||'standard';
+      let base = method==='express'? 99:49;
+      let perKm = method==='express'? 3:2; // ₹/km
+      let dist = 10; // default unknown distance
+      if(delivery.user && delivery.coords){ dist = Math.round(haversine(delivery.user.lat, delivery.user.lon, delivery.coords.lat, delivery.coords.lon)); }
+      const amount = base + Math.max(0, dist-25)*perKm; // within 25km ~ base only
+      return {amount, note:`${method==='express'?'Express':'Standard'} • Est. distance ${dist} km`};
+    }
+
+    // Haversine distance (km)
+    function haversine(lat1, lon1, lat2, lon2){
+      const R=6371, toRad = d=> d*Math.PI/180;
+      const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1);
+      const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+      return R*2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    // ---- Checkout -> Create Order & Track ----
+    document.getElementById('btnCheckout').addEventListener('click', ()=>{
+      if(!cart.length) return alert('Your cart is empty');
+      if(!delivery.city){ const m = new bootstrap.Modal('#deliveryModal'); m.show(); return; }
+      const orderId = 'ORD' + Math.random().toString(36).slice(2,8).toUpperCase();
+      startTracking(orderId);
+    });
+
+    // ---- Tracking (Leaflet simulated path) ----
+    let map, userMarker, whMarker, pkgMarker, trkTimer, progress=0;
+    function startTracking(orderId){
+      document.getElementById('trkId').textContent = orderId;
+      const modal = new bootstrap.Modal('#trackModal');
+      modal.show();
+      setTimeout(initMap, 200); // ensure modal rendered
+      // Simulate progress
+      progress = 15; updateProgress();
+      clearInterval(trkTimer);
+      trkTimer = setInterval(()=>{
+        progress += Math.random()*18; // step
+        if(progress>=100){ progress=100; clearInterval(trkTimer); }
+        updateProgress();
+        movePackageMarker(progress/100);
+      }, 1800);
+    }
+    function updateProgress(){
+      const bar = document.getElementById('trkBar');
+      bar.style.width = progress+'%'; bar.textContent = Math.round(progress)+'%';
+      const status = document.getElementById('trkStatus');
+      let label = 'Processing';
+      if(progress<30) label='Packed'; else if(progress<60) label='Shipped'; else if(progress<90) label='Out for Delivery'; else label='Delivered';
+      status.textContent = label; status.className = 'badge '+(label==='Delivered'?'text-bg-success':'text-bg-primary');
+      const steps = document.querySelectorAll('#trkSteps li');
+      steps.forEach((li,i)=>{ li.style.fontWeight = (i*25<progress)? '700':'400'; });
+    }
+    function initMap(){
+      const user = delivery.user || {lat:12.9716, lon:77.5946};
+      const wh = delivery.coords || WAREHOUSES.Bengaluru;
+      if(!map){ map = L.map('map'); }
+      map.setView([ (user.lat+wh.lat)/2, (user.lon+wh.lon)/2 ], 6);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+      if(userMarker) { map.removeLayer(userMarker); map.removeLayer(whMarker); map.removeLayer(pkgMarker); }
+      userMarker = L.marker([user.lat, user.lon]).addTo(map).bindPopup('Your location');
+      whMarker = L.marker([wh.lat, wh.lon]).addTo(map).bindPopup('Warehouse');
+      pkgMarker = L.marker([wh.lat, wh.lon], {draggable:false}).addTo(map).bindPopup('Package');
+    }
+    function movePackageMarker(t){ // t in [0,1]
+      if(!delivery.user || !delivery.coords || !pkgMarker) return;
+      const A = delivery.coords, B = delivery.user;
+      const lat = A.lat + (B.lat-A.lat)*t;
+      const lon = A.lon + (B.lon-A.lon)*t;
+      pkgMarker.setLatLng([lat, lon]);
+    }
+
+    // ---- Utils ----
+    function bump(sel){ const el=document.querySelector(sel); el.classList.add('scale-110'); setTimeout(()=>el.classList.remove('scale-110'), 300); }
+
+    // ---- Init ----
+    (function init(){
+      document.getElementById('year').textContent = new Date().getFullYear();
+      buildFilters();
+      applyFilters();
+      renderCart();
+      renderWishlist();
+      // Restore UI delivery defaults
+      if(delivery.city) document.getElementById('city').value = delivery.city;
+      if(delivery.method) document.getElementById('shipMethod').value = delivery.method;
+    })();
+  </script>
+</body>
+</html>
